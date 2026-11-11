@@ -32,6 +32,17 @@
 | [adr/](adr/README.md) | Architecture Decision Records: [ADR-001](adr/0001-choice-of-technology.md) (запобігання подвійному бронюванню), [ADR-002](adr/0002-bonus-wallet-model.md) (модель бонусного рахунку) |
 | [proposal.md](proposal.md) | Thesis Proposal (ЛР №1, доповнено бонусною програмою) |
 
+## Робочі документи в Google Drive
+
+Папка (доступ «Коментатор» за посиланням): [F2 Diploma — Клевач В. Р.](https://drive.google.com/drive/folders/115YhKryqAKjlZWUPCCfmWvs2Hd2C5VQK)
+
+| Документ | Зміст |
+| --- | --- |
+| [F2_Diploma_Chapter1_Клевач](https://docs.google.com/document/d/1NkcRoruu8kRjw5roId7ScxTO1OYbodlD8Ze9lwYWmXo/edit?usp=sharing) | Розділ 1 (ЛР №4) |
+| [F2_Diploma_Chapter2_Клевач](https://docs.google.com/document/d/1VbMz8VFq-7GQ_ku0mwdI1BxQrhUOZyWELYJPcqnYDRU/edit?usp=sharing) | Розділ 2: C4 L1–L3 (рисунки), ADR-001, ADR-002, трасування (ЛР №5) |
+| [F2_LR5_SRS_Клевач](https://docs.google.com/document/d/1zXwniSNlJfzpxBOHGjQvPUN3Z_G68jEFvcQCUbd2xPc/edit?usp=sharing) | SRS за ISO/IEC/IEEE 29148 (ЛР №5) |
+| [F2_LR5_AI_Disclosure_Клевач](https://docs.google.com/document/d/1XpNeurhz12Y3wPVQ6K7uIQSZyWLdZMdQV5oevauwWHc/edit?usp=sharing) | Протокол роботи з ШІ-аудиторами (ЛР №5) |
+
 ## Робочий документ Розділу 1
 
 Зведений монолітний документ Розділу 1 (підрозділи 1.1–1.5 і висновки, 14 сторінок):
