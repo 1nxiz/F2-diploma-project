@@ -3,7 +3,7 @@
 | Атрибут | Значення |
 | --- | --- |
 | Статус | **Approved** |
-| Дата | 11.11.2026 |
+| Дата | 10.11.2026 |
 | Автор | Клевач Василь Романович |
 | Вимоги | [SRS-FUN-14](../srs.md#srs-fun-14), [SRS-FUN-18](../srs.md#srs-fun-18)–[SRS-FUN-23](../srs.md#srs-fun-23), [SRS-BR-01](../srs.md#srs-br-01)–[SRS-BR-09](../srs.md#srs-br-09), [SRS-NFR-CONS-02](../srs.md#srs-nfr-cons-02)–[SRS-NFR-CONS-04](../srs.md#srs-nfr-cons-04) |
 
