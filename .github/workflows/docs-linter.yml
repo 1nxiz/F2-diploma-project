@@ -1,0 +1,58 @@
+name: Docs Linter
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - "README.md"
+      - "scripts/**"
+      - ".markdownlint.json"
+      - ".github/workflows/docs-linter.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  markdown:
+    name: Markdown style (markdownlint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DavidAnson/markdownlint-cli2-action@v19
+        with:
+          config: .markdownlint.json
+          globs: |
+            docs/**/*.md
+            README.md
+
+  terminology:
+    name: Terminology (no transliterations)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check banned transliterations and slang
+        run: |
+          pattern='юскейс|юзкейс|свагер|сваггер|джейсон|маркдаун|ендпойнт|ендпоїнт|дашборд|фіча|фічі|юзер|деплоїти|апрув'
+          if grep -rniE "$pattern" docs README.md --include='*.md'; then
+            echo "::error::Found transliterations or slang listed above"
+            exit 1
+          fi
+          echo "No banned terms found"
+
+  consistency:
+    name: API matrix and links
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyyaml==6.0.2 openapi-spec-validator==0.7.1
+      - name: Validate OpenAPI 3.1 contract
+        run: openapi-spec-validator docs/api/openapi.yaml
+      - name: API routes matrix matches openapi.yaml
+        run: python scripts/check_api_matrix.py
+      - name: Relative links and anchors
+        run: python scripts/check_links.py
