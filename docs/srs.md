@@ -164,7 +164,7 @@
 | <a id="srs-nfr-cons-04"></a>SRS-NFR-CONS-04 | Консистентність | 20 паралельних запитів на безкоштовну годину за балансу 100 → рівно 1 успіх; баланс ніколи не виходить за 0–100 | M |
 | <a id="srs-nfr-rel-01"></a>SRS-NFR-REL-01 | Надійність | Частка відповідей 5xx < 0,1 % на еталонному навантаженні | M |
 | <a id="srs-nfr-rel-02"></a>SRS-NFR-REL-02 | Надійність | За недоступності Redis: `POST /holds` повертає 503, `POST /bookings` без hold обробляється, подвійні бронювання відсутні | M |
-| <a id="srs-nfr-rel-03"></a>SRS-NFR-REL-03 | Надійність | Ендпоїнти `/health/live`, `/health/ready`; `restart: unless-stopped`; відновлення API після аварійного завершення ≤ 30 с | M |
+| <a id="srs-nfr-rel-03"></a>SRS-NFR-REL-03 | Надійність | Маршрути `/health/live`, `/health/ready`; `restart: unless-stopped`; відновлення API після аварійного завершення ≤ 30 с | M |
 | <a id="srs-nfr-rel-04"></a>SRS-NFR-REL-04 | Надійність | Щодобовий `pg_dump`; RPO ≤ 24 год, RTO ≤ 1 год | S |
 | <a id="srs-nfr-rel-05"></a>SRS-NFR-REL-05 | Надійність | Затримка завершення бронювання та нарахування балів ≤ 2 хв (p99) | M |
 | <a id="srs-nfr-scal-01"></a>SRS-NFR-SCAL-01 | Масштабованість | API Application не зберігає стан у пам'яті процесу; запуск 2 і більше реплік без зміни коду | M |
