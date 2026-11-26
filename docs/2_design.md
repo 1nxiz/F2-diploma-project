@@ -13,7 +13,7 @@ C4Context
 
   Person(resident, "Резидент", "Шукає та бронює робочі місця, накопичує й використовує бонусні бали")
   Person(admin, "Адміністратор коворкінгу", "Керує каталогом зон і місць та бронюваннями")
-  System(cws, "CoWork Booking System", "Бронювання робочих місць без перетину інтервалів, денний ліміт 5 год, бонусна програма лояльності")
+  System(cws, "CoWork Booking System", "Бронювання робочих місць без перетину інтервалів, денний ліміт 8 год, бонусна програма лояльності")
   System_Ext(smtp, "Email Service", "Зовнішній SMTP-relay для доставки листів")
 
   Rel(resident, cws, "Бронює місця, переглядає бонусний рахунок", "HTTPS / REST JSON")
@@ -129,7 +129,7 @@ C4Component
     Component(err, "Global Error Handler", "FastAPI exception handlers", "RFC 9457: 409, 422, 429")
     Component(bs, "BookingService", "Application service", "hold, create, cancel")
     Component(bonus, "BonusService", "Application service", "Рахунок, cap, безкоштовна година")
-    Component(policy, "Domain Policies", "Pure Python", "Quota 5 год; 5 балів/год; cap 100")
+    Component(policy, "Domain Policies", "Pure Python", "Quota 8 год; 5 балів/год; cap 100")
     Component(ports, "Ports", "typing.Protocol", "Репозиторії, сховища, UnitOfWork")
     Component(root, "Composition Root", "dependencies.py", "Зв'язує порти з адаптерами")
     Component(sql, "SQLAlchemy Adapters", "SQLAlchemy 2.0 async", "Репозиторії, UoW, FOR UPDATE")
@@ -169,12 +169,12 @@ C4Component
 | --- | --- | --- | --- | --- |
 | Inbound | Middleware Pipeline | Генерація `request_id`, JSON-журналювання, метрики Prometheus, rate limit | Ланцюжок ASGI middleware; лічильник у Redis через `RateLimitStore` | [SRS-NFR-OBS-01](srs.md#srs-nfr-obs-01), [SRS-NFR-OBS-02](srs.md#srs-nfr-obs-02), [SRS-NFR-SCAL-02](srs.md#srs-nfr-scal-02) |
 | Inbound | Booking and Bonus Routers | Ендпоїнти `POST /holds`, `POST /bookings`, `PATCH /bookings/{id}`, `GET /bonus/wallets/{coworking_id}`, `POST /bonus/redemptions` | Отримують сервіси та guard через `Depends()`; не мають доступу до БД | [SRS-FUN-10](srs.md#srs-fun-10)–[SRS-FUN-15](srs.md#srs-fun-15), [SRS-FUN-19](srs.md#srs-fun-19)–[SRS-FUN-22](srs.md#srs-fun-22) |
-| Inbound | DTO Schemas | Валідація: тривалість 1–5 год, початок кратний 30 хв, ISO 8601; модель відповіді з полем `warnings` | `model_validate` до виклику сервісу; помилка → 422 | [SRS-FUN-13](srs.md#srs-fun-13), [SRS-FUN-20](srs.md#srs-fun-20), [SRS-FUN-21](srs.md#srs-fun-21) |
+| Inbound | DTO Schemas | Валідація: тривалість 1–8 год, початок кратний 30 хв, ISO 8601; модель відповіді з полем `warnings` | `model_validate` до виклику сервісу; помилка → 422 | [SRS-FUN-13](srs.md#srs-fun-13), [SRS-FUN-20](srs.md#srs-fun-20), [SRS-FUN-21](srs.md#srs-fun-21) |
 | Inbound | Auth Guard | Перевірка підпису та `exp` JWT, ролі (`user`/`admin`) і власника ресурсу | Залежність FastAPI `Depends(current_user)` | [SRS-FUN-04](srs.md#srs-fun-04), [SRS-NFR-SEC-01](srs.md#srs-nfr-sec-01), [SRS-NFR-SEC-04](srs.md#srs-nfr-sec-04) |
 | Inbound | Global Error Handler | Мапінг доменних винятків у RFC 9457 Problem Details: `BookingConflict` → 409, `DailyLimitExceeded` → 422, `RateLimited` → 429 | `app.add_exception_handler`; приховує стек викликів | [SRS-FUN-11](srs.md#srs-fun-11), [SRS-FUN-14](srs.md#srs-fun-14) |
 | Core | BookingService | Use cases hold / create / cancel; відкриває UnitOfWork, блокує рядок рахунку, перевіряє ліміт | Залежить лише від портів і політик | [SRS-FUN-10](srs.md#srs-fun-10)–[SRS-FUN-15](srs.md#srs-fun-15), [ADR-001](adr/0001-choice-of-technology.md) |
 | Core | BonusService | Стан рахунку, попередження `BONUS_CAP_REACHED` / `BONUS_CAP_PARTIAL`, активація безкоштовної години, відновлення балансу | Залежить лише від портів і політик | [SRS-FUN-19](srs.md#srs-fun-19)–[SRS-FUN-23](srs.md#srs-fun-23), [ADR-002](adr/0002-bonus-wallet-model.md) |
-| Core | Domain Policies | Чисті функції: `QuotaPolicy` (≤ 5 год/добу, [SRS-BR-02](srs.md#srs-br-02)), `BonusPolicy` (`min(5h, 100 − b)`, [SRS-BR-03](srs.md#srs-br-03), [SRS-BR-04](srs.md#srs-br-04)) | Виклик функції без I/O; покриття тестами ≥ 90 % | [SRS-NFR-MAINT-01](srs.md#srs-nfr-maint-01) |
+| Core | Domain Policies | Чисті функції: `QuotaPolicy` (≤ 8 год/добу, [SRS-BR-02](srs.md#srs-br-02)), `BonusPolicy` (`min(5h, 100 − b)`, [SRS-BR-03](srs.md#srs-br-03), [SRS-BR-04](srs.md#srs-br-04)) | Виклик функції без I/O; покриття тестами ≥ 90 % | [SRS-NFR-MAINT-01](srs.md#srs-nfr-maint-01) |
 | Core | Ports | Інтерфейси `BookingRepository`, `WalletRepository`, `HoldStore`, `IdempotencyStore`, `RateLimitStore`, `UnitOfWork` | `typing.Protocol`; реалізуються адаптерами | — |
 | Wiring | Composition Root | Створення адаптерів і передача їх сервісам | Фабрики FastAPI-залежностей (`dependencies.py`) | — |
 | Outbound | SQLAlchemy Adapters | Репозиторії, UnitOfWork (AsyncSession), `SELECT … FOR UPDATE`, мапінг SQLSTATE `23P01` → `BookingConflict` | SQL / asyncpg → PostgreSQL | [SRS-FUN-11](srs.md#srs-fun-11), [SRS-NFR-CONS-01](srs.md#srs-nfr-cons-01), [SRS-NFR-CONS-02](srs.md#srs-nfr-cons-02) |
