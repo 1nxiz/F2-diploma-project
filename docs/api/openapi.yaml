@@ -1,0 +1,808 @@
+openapi: 3.1.0
+info:
+  title: CoWork Booking System API
+  version: 1.1.0
+  description: >
+    REST API вебсистеми бронювання робочих місць у коворкінгу з бонусною
+    програмою лояльності та Smart Booking Assistant. Вимоги — docs/srs.md,
+    архітектура — docs/2_design.md.
+  license:
+    name: Proprietary (кваліфікаційна робота)
+    identifier: LicenseRef-Thesis
+servers:
+  - url: https://cowork.example.com
+    description: Reverse Proxy (Nginx); усі шляхи API мають префікс /api/v1
+security:
+  - bearerAuth: []
+tags:
+  - name: auth
+  - name: catalog
+  - name: bookings
+  - name: bonus
+  - name: assistant
+  - name: health
+
+paths:
+  /api/v1/auth/register:
+    post:
+      tags: [auth]
+      operationId: register
+      summary: Реєстрація користувача (SRS-FUN-01)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+      responses:
+        '201':
+          description: Користувача створено
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Автентифікація, видача пари JWT (SRS-FUN-02)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Пара токенів
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenPair' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [auth]
+      operationId: refreshTokens
+      summary: Ротація refresh-токена (SRS-FUN-03)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
+      responses:
+        '200':
+          description: Нова пара токенів; попередній refresh-токен відкликано
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenPair' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: Відкликання refresh-токена
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RefreshRequest' }
+      responses:
+        '204': { description: Токен відкликано }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/users/me:
+    delete:
+      tags: [auth]
+      operationId: deleteMe
+      summary: Видалення облікового запису з анонімізацією (SRS-FUN-05)
+      responses:
+        '204': { description: Обліковий запис видалено }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/coworkings:
+    get:
+      tags: [catalog]
+      operationId: listCoworkings
+      summary: Перелік коворкінгів
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Сторінка коворкінгів
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CoworkingPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [catalog]
+      operationId: createCoworking
+      summary: Створення коворкінгу (admin, SRS-FUN-06)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CoworkingCreate' }
+      responses:
+        '201':
+          description: Створено
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Coworking' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /api/v1/coworkings/{coworking_id}/zones:
+    post:
+      tags: [catalog]
+      operationId: createZone
+      summary: Створення зони (admin, SRS-FUN-06)
+      parameters:
+        - $ref: '#/components/parameters/CoworkingId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ZoneCreate' }
+      responses:
+        '201':
+          description: Створено
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Zone' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/zones/{zone_id}/workspaces:
+    post:
+      tags: [catalog]
+      operationId: createWorkspace
+      summary: Створення робочого місця з характеристиками (admin, SRS-FUN-06, SRS-FUN-34)
+      parameters:
+        - $ref: '#/components/parameters/ZoneId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WorkspaceCreate' }
+      responses:
+        '201':
+          description: Створено
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Workspace' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/workspaces/{workspace_id}:
+    patch:
+      tags: [catalog]
+      operationId: updateWorkspace
+      summary: Зміна або деактивація місця з оптимістичним блокуванням (admin, SRS-FUN-07, SRS-FUN-08)
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WorkspacePatch' }
+      responses:
+        '200':
+          description: Оновлено
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Workspace' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/v1/workspaces/{workspace_id}/neighbors:
+    put:
+      tags: [catalog]
+      operationId: setNeighbors
+      summary: Задання сусідства місця (admin, SRS-FUN-34)
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NeighborsUpdate' }
+      responses:
+        '204': { description: Сусідство оновлено }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /api/v1/coworkings/{coworking_id}/availability:
+    get:
+      tags: [catalog]
+      operationId: getAvailability
+      summary: Вільні місця для інтервалу (SRS-FUN-09)
+      parameters:
+        - $ref: '#/components/parameters/CoworkingId'
+        - { name: start, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: end, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: zone_id, in: query, schema: { type: string, format: uuid } }
+        - { name: type, in: query, schema: { $ref: '#/components/schemas/WorkspaceType' } }
+        - { name: min_monitors, in: query, schema: { type: integer, minimum: 0, maximum: 4 } }
+        - { name: quiet, in: query, schema: { type: boolean } }
+        - { name: near_window, in: query, schema: { type: boolean } }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Сторінка вільних місць
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkspacePage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /api/v1/holds:
+    post:
+      tags: [bookings]
+      operationId: createHold
+      summary: Тимчасове блокування місця на 120 с (SRS-FUN-10)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HoldRequest' }
+      responses:
+        '201':
+          description: Hold встановлено
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Hold' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+  /api/v1/holds/{hold_token}:
+    delete:
+      tags: [bookings]
+      operationId: releaseHold
+      summary: Зняття власного hold
+      parameters:
+        - { name: hold_token, in: path, required: true, schema: { type: string, minLength: 32, maxLength: 64 } }
+      responses:
+        '204': { description: Hold знято }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/bookings:
+    post:
+      tags: [bookings]
+      operationId: createBooking
+      summary: Створення бронювання (SRS-FUN-11–SRS-FUN-14, SRS-FUN-20, SRS-FUN-21)
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BookingCreate' }
+      responses:
+        '201':
+          description: Бронювання створено; warnings містить BONUS_CAP_REACHED або BONUS_CAP_PARTIAL
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BookingCreated' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+    get:
+      tags: [bookings]
+      operationId: listBookings
+      summary: Історія бронювань; фільтри coworking_id, zone_id, status і date доступні адміністратору (SRS-FUN-16)
+      parameters:
+        - { name: coworking_id, in: query, schema: { type: string, format: uuid } }
+        - { name: zone_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { $ref: '#/components/schemas/BookingStatus' } }
+        - { name: date, in: query, schema: { type: string, format: date } }
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Сторінка бронювань
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BookingPage' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/bookings/{booking_id}:
+    get:
+      tags: [bookings]
+      operationId: getBooking
+      summary: Бронювання власника або будь-яке для admin (захист від BOLA)
+      parameters:
+        - $ref: '#/components/parameters/BookingId'
+      responses:
+        '200':
+          description: Бронювання
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Booking' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [bookings]
+      operationId: cancelBooking
+      summary: Скасування бронювання (SRS-FUN-15, SRS-FUN-23)
+      parameters:
+        - $ref: '#/components/parameters/BookingId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BookingCancel' }
+      responses:
+        '200':
+          description: Скасовано
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Booking' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/v1/bonus/wallets/{coworking_id}:
+    get:
+      tags: [bonus]
+      operationId: getWallet
+      summary: Стан бонусного рахунку (SRS-FUN-19)
+      parameters:
+        - $ref: '#/components/parameters/CoworkingId'
+      responses:
+        '200':
+          description: Рахунок
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BonusWallet' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/bonus/redemptions:
+    post:
+      tags: [bonus]
+      operationId: redeemFreeHour
+      summary: Використання безкоштовної години (SRS-FUN-22)
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RedemptionRequest' }
+      responses:
+        '201':
+          description: Бонусне бронювання створено, баланс 0
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Booking' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /api/v1/assistant/proposals:
+    post:
+      tags: [assistant]
+      operationId: createProposal
+      summary: Розбір текстового запиту, підбір і пояснення (SRS-FUN-25–SRS-FUN-31)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AssistantRequest' }
+      responses:
+        '201':
+          description: Пропозиції з поясненням і proposal_id; hold встановлено на 120 с
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Proposal' }
+        '200':
+          description: Потрібне уточнення (CLARIFICATION_REQUIRED)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Clarification' }
+        '413': { $ref: '#/components/responses/PayloadTooLarge' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/TooManyRequests' }
+
+  /api/v1/assistant/proposals/{proposal_id}/confirm:
+    post:
+      tags: [assistant]
+      operationId: confirmProposal
+      summary: Підтвердження пропозиції, бронювання «усе або нічого» (SRS-FUN-32)
+      parameters:
+        - { name: proposal_id, in: path, required: true, schema: { type: string, format: uuid } }
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProposalConfirm' }
+      responses:
+        '201':
+          description: Усі бронювання пропозиції створено
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BookingCreatedList' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '410': { $ref: '#/components/responses/Gone' }
+
+  /health/live:
+    get:
+      tags: [health]
+      operationId: healthLive
+      security: []
+      responses:
+        '200': { description: Процес працює }
+
+  /health/ready:
+    get:
+      tags: [health]
+      operationId: healthReady
+      security: []
+      responses:
+        '200': { description: PostgreSQL і Redis доступні }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    CoworkingId: { name: coworking_id, in: path, required: true, schema: { type: string, format: uuid } }
+    ZoneId: { name: zone_id, in: path, required: true, schema: { type: string, format: uuid } }
+    WorkspaceId: { name: workspace_id, in: path, required: true, schema: { type: string, format: uuid } }
+    BookingId: { name: booking_id, in: path, required: true, schema: { type: string, format: uuid } }
+    Cursor:
+      name: cursor
+      in: query
+      description: Непрозорий курсор наступної сторінки
+      schema: { type: string, maxLength: 128 }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 50, default: 20 }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: UUID; результат першої обробки зберігається 24 год (SRS-FUN-12)
+      schema: { type: string, format: uuid }
+
+  responses:
+    Unauthorized:
+      description: Відсутній або недійсний JWT
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    Forbidden:
+      description: Недостатньо прав (RBAC)
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    NotFound:
+      description: Ресурс не знайдено або не належить користувачу
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    Conflict:
+      description: Конфлікт стану (перетин інтервалів, застаріла version, hold зайнятий, баланс < 100)
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    Gone:
+      description: Пропозицію прострочено (hold минув)
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    PayloadTooLarge:
+      description: Тіло запиту перевищує 16 KiB
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    ValidationError:
+      description: Порушення схеми або бізнес-правила (тривалість 1–8 год, денний ліміт 8 год)
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    TooManyRequests:
+      description: Перевищено rate limit
+      headers:
+        Retry-After: { schema: { type: integer } }
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    ServiceUnavailable:
+      description: Redis або залежність недоступні
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+
+  schemas:
+    Problem:
+      type: object
+      description: RFC 9457 Problem Details
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        code: { type: string, examples: [BOOKING_CONFLICT, DAILY_LIMIT_EXCEEDED, VERSION_MISMATCH] }
+        request_id: { type: string }
+
+    RegisterRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password, full_name]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, minLength: 12, maxLength: 128 }
+        full_name: { type: string, minLength: 1, maxLength: 120 }
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, maxLength: 128 }
+    RefreshRequest:
+      type: object
+      additionalProperties: false
+      required: [refresh_token]
+      properties:
+        refresh_token: { type: string, maxLength: 512 }
+    TokenPair:
+      type: object
+      required: [access_token, refresh_token, token_type, expires_in]
+      properties:
+        access_token: { type: string }
+        refresh_token: { type: string }
+        token_type: { type: string, const: Bearer }
+        expires_in: { type: integer, const: 900 }
+    User:
+      type: object
+      required: [id, email, full_name, role]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        full_name: { type: string }
+        role: { type: string, enum: [user, admin] }
+
+    Coworking:
+      type: object
+      required: [id, name, timezone, opens_at, closes_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        timezone: { type: string, examples: [Europe/Kyiv] }
+        opens_at: { type: string, pattern: '^\d{2}:\d{2}$' }
+        closes_at: { type: string, pattern: '^\d{2}:\d{2}$' }
+    CoworkingCreate:
+      type: object
+      additionalProperties: false
+      required: [name, timezone, opens_at, closes_at]
+      properties:
+        name: { type: string, maxLength: 120 }
+        timezone: { type: string, maxLength: 64 }
+        opens_at: { type: string, pattern: '^\d{2}:\d{2}$' }
+        closes_at: { type: string, pattern: '^\d{2}:\d{2}$' }
+    CoworkingPage:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Coworking' } }
+        next_cursor: { type: [string, 'null'] }
+    Zone:
+      type: object
+      required: [id, coworking_id, name, is_quiet]
+      properties:
+        id: { type: string, format: uuid }
+        coworking_id: { type: string, format: uuid }
+        name: { type: string }
+        is_quiet: { type: boolean }
+    ZoneCreate:
+      type: object
+      additionalProperties: false
+      required: [name, is_quiet]
+      properties:
+        name: { type: string, maxLength: 120 }
+        is_quiet: { type: boolean }
+
+    WorkspaceType: { type: string, enum: [desk, meeting_room] }
+    Workspace:
+      type: object
+      required: [id, zone_id, code, type, monitors, near_window, is_active, version]
+      properties:
+        id: { type: string, format: uuid }
+        zone_id: { type: string, format: uuid }
+        code: { type: string, examples: [A-07] }
+        type: { $ref: '#/components/schemas/WorkspaceType' }
+        monitors: { type: integer, minimum: 0, maximum: 4 }
+        near_window: { type: boolean }
+        is_active: { type: boolean }
+        version: { type: integer, minimum: 1 }
+    WorkspaceCreate:
+      type: object
+      additionalProperties: false
+      required: [code, type, monitors, near_window]
+      properties:
+        code: { type: string, maxLength: 16 }
+        type: { $ref: '#/components/schemas/WorkspaceType' }
+        monitors: { type: integer, minimum: 0, maximum: 4 }
+        near_window: { type: boolean }
+    WorkspacePatch:
+      type: object
+      additionalProperties: false
+      required: [version]
+      properties:
+        version: { type: integer, minimum: 1 }
+        monitors: { type: integer, minimum: 0, maximum: 4 }
+        near_window: { type: boolean }
+        is_active: { type: boolean }
+    NeighborsUpdate:
+      type: object
+      additionalProperties: false
+      required: [neighbor_ids]
+      properties:
+        neighbor_ids:
+          type: array
+          maxItems: 8
+          uniqueItems: true
+          items: { type: string, format: uuid }
+    WorkspacePage:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Workspace' } }
+        next_cursor: { type: [string, 'null'] }
+
+    Interval:
+      type: object
+      additionalProperties: false
+      required: [start, end]
+      description: Тривалість — ціле число годин 1–8, початок кратний 30 хв
+      properties:
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+    HoldRequest:
+      type: object
+      additionalProperties: false
+      required: [workspace_id, interval]
+      properties:
+        workspace_id: { type: string, format: uuid }
+        interval: { $ref: '#/components/schemas/Interval' }
+    Hold:
+      type: object
+      required: [hold_token, workspace_id, expires_at]
+      properties:
+        hold_token: { type: string }
+        workspace_id: { type: string, format: uuid }
+        expires_at: { type: string, format: date-time }
+
+    BookingStatus: { type: string, enum: [confirmed, cancelled, completed] }
+    BookingCreate:
+      type: object
+      additionalProperties: false
+      required: [workspace_id, interval]
+      properties:
+        workspace_id: { type: string, format: uuid }
+        interval: { $ref: '#/components/schemas/Interval' }
+        hold_token: { type: string, maxLength: 64 }
+    BookingCancel:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { type: string, const: cancelled }
+    Booking:
+      type: object
+      required: [id, workspace_id, interval, kind, status]
+      properties:
+        id: { type: string, format: uuid }
+        workspace_id: { type: string, format: uuid }
+        interval: { $ref: '#/components/schemas/Interval' }
+        kind: { type: string, enum: [regular, bonus] }
+        parent_booking_id: { type: [string, 'null'], format: uuid }
+        status: { $ref: '#/components/schemas/BookingStatus' }
+    Warning:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string, enum: [BONUS_CAP_REACHED, BONUS_CAP_PARTIAL] }
+        message: { type: string }
+        points_to_accrue: { type: integer, minimum: 0, maximum: 40 }
+        actions:
+          type: array
+          items: { type: string, enum: [redeem_now, keep] }
+    BookingCreated:
+      type: object
+      required: [booking, warnings]
+      properties:
+        booking: { $ref: '#/components/schemas/Booking' }
+        warnings: { type: array, items: { $ref: '#/components/schemas/Warning' } }
+    BookingCreatedList:
+      type: object
+      required: [bookings, warnings]
+      properties:
+        bookings: { type: array, minItems: 1, maxItems: 6, items: { $ref: '#/components/schemas/Booking' } }
+        warnings: { type: array, items: { $ref: '#/components/schemas/Warning' } }
+    BookingPage:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/Booking' } }
+        next_cursor: { type: [string, 'null'] }
+
+    BonusWallet:
+      type: object
+      required: [coworking_id, balance, progress_percent, free_hour_available]
+      properties:
+        coworking_id: { type: string, format: uuid }
+        balance: { type: integer, minimum: 0, maximum: 100 }
+        progress_percent: { type: integer, minimum: 0, maximum: 100 }
+        free_hour_available: { type: boolean }
+    RedemptionRequest:
+      type: object
+      additionalProperties: false
+      required: [booking_id]
+      properties:
+        booking_id: { type: string, format: uuid }
+
+    AssistantRequest:
+      type: object
+      additionalProperties: false
+      required: [coworking_id, text]
+      properties:
+        coworking_id: { type: string, format: uuid }
+        text: { type: string, minLength: 3, maxLength: 500 }
+    BookingConstraints:
+      type: object
+      additionalProperties: false
+      required: [date, start_time, end_time, seats]
+      properties:
+        date: { type: string, format: date }
+        start_time: { type: string, pattern: '^\d{2}:(00|30)$' }
+        end_time: { type: string, pattern: '^\d{2}:(00|30)$' }
+        seats: { type: integer, minimum: 1, maximum: 6 }
+        workspace_type: { $ref: '#/components/schemas/WorkspaceType' }
+        required:
+          type: array
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Feature' }
+        preferred:
+          type: array
+          uniqueItems: true
+          items: { $ref: '#/components/schemas/Feature' }
+        min_monitors: { type: integer, minimum: 0, maximum: 4 }
+    Feature: { type: string, enum: [quiet, near_window, monitors] }
+    ScoreBreakdown:
+      type: object
+      required: [preferences, fragmentation_penalty, overprovision_penalty, total]
+      properties:
+        preferences: { type: number }
+        fragmentation_penalty: { type: number }
+        overprovision_penalty: { type: number }
+        total: { type: number }
+    ProposalOption:
+      type: object
+      required: [rank, workspace_ids, score, explanation]
+      properties:
+        rank: { type: integer, minimum: 1, maximum: 3 }
+        workspace_ids: { type: array, minItems: 1, maxItems: 6, items: { type: string, format: uuid } }
+        score: { $ref: '#/components/schemas/ScoreBreakdown' }
+        explanation: { type: array, items: { type: string } }
+    Proposal:
+      type: object
+      required: [proposal_id, constraints, parser, options, expires_at]
+      properties:
+        proposal_id: { type: string, format: uuid }
+        constraints: { $ref: '#/components/schemas/BookingConstraints' }
+        parser: { type: string, enum: [llm, rules] }
+        options: { type: array, minItems: 1, maxItems: 3, items: { $ref: '#/components/schemas/ProposalOption' } }
+        expires_at: { type: string, format: date-time }
+    Clarification:
+      type: object
+      required: [code, missing, question]
+      properties:
+        code: { type: string, const: CLARIFICATION_REQUIRED }
+        missing: { type: array, items: { type: string } }
+        question: { type: string }
+    ProposalConfirm:
+      type: object
+      additionalProperties: false
+      required: [rank]
+      properties:
+        rank: { type: integer, minimum: 1, maximum: 3 }

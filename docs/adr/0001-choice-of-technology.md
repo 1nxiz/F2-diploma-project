@@ -7,7 +7,7 @@
 | Автор | Клевач Василь Романович |
 | Шаблон | Michael Nygard, «Documenting Architecture Decisions» |
 | Вимоги | [SRS-FUN-10](../srs.md#srs-fun-10), [SRS-FUN-11](../srs.md#srs-fun-11), [SRS-NFR-CONS-01](../srs.md#srs-nfr-cons-01), [SRS-NFR-PERF-02](../srs.md#srs-nfr-perf-02), [SRS-NFR-REL-02](../srs.md#srs-nfr-rel-02), [SRS-NFR-SCAL-01](../srs.md#srs-nfr-scal-01) |
-| Архітектура | [C4 Container](../2_design.md#212-рівень-2-container-diagram), [C4 Component](../2_design.md#22-компонентне-моделювання-критичного-сервісу-системи) |
+| Архітектура | [C4 Container](../2_design.md#diagram-level2), [C4 Component](../2_design.md#diagram-level3) |
 
 ## Context
 

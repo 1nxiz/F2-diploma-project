@@ -161,7 +161,7 @@ Advisory-блокування (`pg_advisory_xact_lock`) дають змогу с
 
 У цільовому стані процес бронювання реалізується як пайплайн із двома рівнями синхронізації:
 
-1. Запит доступності: клієнт надсилає `GET /api/v1/workspaces/availability` з інтервалом і фільтрами; API виконує запит до PostgreSQL з перевіркою перетину діапазонів (оператор &&, GiST-індекс) і виключає місця з активним hold у Redis.
+1. Запит доступності: клієнт надсилає `GET /api/v1/coworkings/{coworking_id}/availability` з інтервалом і фільтрами; API виконує запит до PostgreSQL з перевіркою перетину діапазонів (оператор &&, GiST-індекс) і виключає місця з активним hold у Redis.
 2. Тимчасове блокування: `POST /api/v1/holds` виконує `SET hold:{workspace_id} <token> NX PX 120000`; у разі невдачі повертається 409 Conflict без звернення до PostgreSQL; непідтверджений hold зникає через 120 с.
 3. Підтвердження: `POST /api/v1/bookings` з hold-token і заголовком Idempotency-Key; у транзакції виконується вставка, а обмеження `EXCLUDE USING gist (workspace_id WITH =, period WITH &&) WHERE (status = 'confirmed')` відхиляє будь-який перетин; після COMMIT hold знімається.
 4. Скасування: `PATCH /api/v1/bookings/{id}` змінює статус на cancelled після перевірки власника; запис зберігається для аудиту, інтервал звільняється.
@@ -248,10 +248,10 @@ Advisory-блокування (`pg_advisory_xact_lock`) дають змогу с
 
 ## Джерела до підрозділу 1.3
 
-1. Nexudus. REST API Overview. URL: https://learn.nexudus.com/rest-api/overview
-2. Nexudus. API-first coworking platform. URL: https://nexudus.com/api-first-coworking-platform/
-3. Nexudus. Assigning credit for bookings. URL: https://legacydocs.nexudus.com/platform/day-to-day/sales/bookings/assigning-money-credit
-4. OfficeRnD. API v2 Migration Guide. URL: https://developer.officernd.com/docs/api-v2-migration-guide
-5. OfficeRnD. Generating a token. URL: https://developer.officernd.com/v1.0-Hybrid/docs/generating-a-token
-6. OfficeRnD. Booking Credits (glossary). URL: https://www.officernd.com/glossary/flex/booking-credits/
-7. Seatsurfing. Source code repository. URL: https://github.com/seatsurfing/seatsurfing
+1. Nexudus. REST API Overview. URL: <https://learn.nexudus.com/rest-api/overview>
+2. Nexudus. API-first coworking platform. URL: <https://nexudus.com/api-first-coworking-platform/>
+3. Nexudus. Assigning credit for bookings. URL: <https://legacydocs.nexudus.com/platform/day-to-day/sales/bookings/assigning-money-credit>
+4. OfficeRnD. API v2 Migration Guide. URL: <https://developer.officernd.com/docs/api-v2-migration-guide>
+5. OfficeRnD. Generating a token. URL: <https://developer.officernd.com/v1.0-Hybrid/docs/generating-a-token>
+6. OfficeRnD. Booking Credits (glossary). URL: <https://www.officernd.com/glossary/flex/booking-credits/>
+7. Seatsurfing. Source code repository. URL: <https://github.com/seatsurfing/seatsurfing>
